@@ -45,6 +45,7 @@ public struct AdCellView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var didSaveLink: Bool
     @State private var size: CGSize = .zero
+    @State private var disableSaveButton: Bool = false
     private let model: Model
     private let saveLinkTask: (UIImage) async -> Bool
     private let deletedSavedLink: () async  -> Bool
@@ -62,8 +63,9 @@ public struct AdCellView: View {
                 .frame(width: size.width, height: size.height * 0.5, alignment: .center)
                 .overlay(alignment: .topTrailing) {
                     saveButton
-                    .padding(.top, 8)
-                    .padding(.horizontal, 8)
+                        .disabled(disableSaveButton)
+                        .padding(.top, 8)
+                        .padding(.horizontal, 8)
                 }
                 .clipShape(UnevenRoundedRectangle(cornerRadii: .init(topLeading: 22, bottomLeading: 8, bottomTrailing: 8, topTrailing: 22)))
             
@@ -181,30 +183,38 @@ public struct AdCellView: View {
     }
     
     private func favoriteButtonTapAction() {
-        print("(DEBUG) tapped on Save!")
-        if didSaveLink {
-            self.didSaveLink = false
-            Task {
-                await deletedSavedLink()
-            }
-        } else {
-            self.didSaveLink = true
-            Task {
-                guard let image = await imageOfAd() else {
-                    await MainActor.run {
-                        self.didSaveLink = false
-                    }
-                    return
+        Task {
+            await updateButtonDisability(true)
+            if didSaveLink {
+                await updateDidSaveLink(false)
+                let wasSuccessfullyDeleted =  await deletedSavedLink()
+                if !wasSuccessfullyDeleted {
+                    await updateDidSaveLink(true)
                 }
-                
-                let wasSaved = await saveLinkTask(image)
-                if !wasSaved {
-                    await MainActor.run {
-                        self.didSaveLink = false
+                await updateButtonDisability(false)
+            } else {
+                await updateDidSaveLink(true)
+                if let image = await imageOfAd() {
+                    let wasSaved = await saveLinkTask(image)
+                    if !wasSaved {
+                        await updateDidSaveLink(false)
                     }
+                } else {
+                    await updateDidSaveLink(false)
                 }
+                await updateButtonDisability(false)
             }
         }
+    }
+    
+    @MainActor
+    private func updateButtonDisability(_ isDisabled: Bool) async {
+        self.disableSaveButton = isDisabled
+    }
+    
+    @MainActor
+    private func updateDidSaveLink(_ wasSaved: Bool) async {
+       self.didSaveLink = wasSaved
     }
 }
 

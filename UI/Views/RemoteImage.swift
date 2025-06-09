@@ -113,9 +113,7 @@ public struct RemoteImage: View {
         .task(id: photoURL.id, priority: .userInitiated) {
             let image = await fetchImage()
             await MainActor.run {
-                withAnimation(.easeIn) {
-                    self.imageState = .image(image)
-                }
+                self.imageState = .image(image)
             }
         }
     }

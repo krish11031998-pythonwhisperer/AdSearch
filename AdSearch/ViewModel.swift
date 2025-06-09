@@ -97,12 +97,13 @@ class ViewModel: ObservableObject {
             imageURL = nil
         }
         
-        return SavedAd.create(id: ad.id,
+        let wasSucessfullySaved = SavedAd.create(id: ad.id,
                               adType: ad.adType,
                               location: ad.location,
                               price: ad.price,
                               title: ad.title,
                               imageString: imageURL?.path())
+        return wasSucessfullySaved
     }
     
     
