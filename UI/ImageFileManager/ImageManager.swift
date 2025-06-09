@@ -53,7 +53,6 @@ public actor ImageManager {
             let imageDownloadTask: Task<UIImage, Never> = .init {
                 do {
                     let (data, _) = try await URLSession.shared.data(from: url)
-                    imageDownloadingTasks[urlString] = nil
                     if let image = UIImage(data: data) {
                         cache[urlString] = image
                         return image
@@ -68,6 +67,16 @@ public actor ImageManager {
             
             imageDownloadingTasks[urlString] = imageDownloadTask
             return await imageDownloadTask.value
+        }
+    }
+    
+    public func fetchImageWithoutRequest(urlString: String) async -> UIImage? {
+        if let image = cache[urlString] {
+            return image
+        } else if let imageDownloadTask = imageDownloadingTasks[urlString] {
+            return await imageDownloadTask.value
+        } else {
+            return nil
         }
     }
     

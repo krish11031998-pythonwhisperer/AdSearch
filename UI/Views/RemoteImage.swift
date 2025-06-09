@@ -10,7 +10,7 @@ import SwiftUI
 
 public struct RemoteImage: View {
     
-    public enum Photo: Hashable {
+    public enum Photo: Hashable, Identifiable {
         case remote(String)
         case local(String)
         case none
@@ -18,8 +18,10 @@ public struct RemoteImage: View {
         public func hash(into hasher: inout Hasher) {
             switch self {
             case .remote(let string):
+                hasher.combine("remote")
                 hasher.combine(string)
             case .local(let string):
+                hasher.combine("local")
                 hasher.combine(string)
             case .none:
                 hasher.combine("none")
@@ -32,8 +34,21 @@ public struct RemoteImage: View {
                 return string1 == string2
             case (.local(let string1), .local(let string2)):
                 return string1 == string2
+            case (.none, .none):
+                return true
             default:
                 return false
+            }
+        }
+        
+        public var id: String {
+            switch self {
+            case .remote(let string):
+                return "remote-\(string)"
+            case .local(let string):
+                return "local-\(string)"
+            case .none:
+                return "none"
             }
         }
     }
@@ -95,7 +110,7 @@ public struct RemoteImage: View {
                 imageViewBuilder(image: uIImage)
             }
         }
-        .task(priority: .background) {
+        .task(id: photoURL.id, priority: .userInitiated) {
             let image = await fetchImage()
             await MainActor.run {
                 withAnimation(.easeIn) {

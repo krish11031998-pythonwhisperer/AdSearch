@@ -27,18 +27,33 @@ public struct AdCellView: View {
             self.title = title
             self.isSaved = isSaved
         }
+        
+        public func hash(into hasher: inout Hasher) {
+            hasher.combine(id)
+            hasher.combine(adType)
+            hasher.combine(price)
+            hasher.combine(location)
+            hasher.combine(title)
+            hasher.combine(isSaved)
+        }
+        
+        public static func == (lhs: Self, rhs: Self) -> Bool {
+            lhs.id == rhs.id && lhs.adType == rhs.adType && lhs.price == rhs.price && lhs.location == rhs.location && lhs.title == rhs.title && lhs.isSaved == rhs.isSaved
+        }
     }
     
     @Environment(\.colorScheme) private var colorScheme
     @State private var didSaveLink: Bool
     @State private var size: CGSize = .zero
     private let model: Model
-    private let saveLinkTask: () -> Task<Bool, Never>
+    private let saveLinkTask: (UIImage) async -> Bool
+    private let deletedSavedLink: () async  -> Bool
     
-    public init(model: Model, saveLinkTask: @escaping () -> Task<Bool, Never>) {
+    public init(model: Model, saveLinkTask: @escaping (UIImage) async -> Bool, deletedSavedLink: @escaping () async -> Bool) {
         self.model = model
         self._didSaveLink = .init(initialValue: model.isSaved)
         self.saveLinkTask = saveLinkTask
+        self.deletedSavedLink = deletedSavedLink
     }
     
     public var body: some View {
@@ -89,7 +104,9 @@ public struct AdCellView: View {
     // MARK: - Helpers
     
     private var imageURLPath: RemoteImage.Photo {
-        guard case .remote(let urlPath) = model.photoURL else { return model.photoURL }
+        guard case .remote(let urlPath) = model.photoURL else {
+            return model.photoURL
+        }
         return .remote("\(ImageManager.adURLBasePath)\(urlPath)")
     }
     
@@ -147,16 +164,44 @@ public struct AdCellView: View {
     
     // MARK: - Button Action
     
+    private func imageOfAd() async -> UIImage? {
+        switch model.photoURL {
+        case .remote(let string):
+            return await ImageManager.shared.fetchImageWithoutRequest(urlString: "\(ImageManager.adURLBasePath)\(string)")
+        case .local(let string):
+            switch await ImageFileManager.shared.retrieveImage(localImagePath: string) {
+            case .success(let image):
+                return image
+            case .failure:
+                return nil
+            }
+        case .none:
+            return nil
+        }
+    }
+    
     private func favoriteButtonTapAction() {
         print("(DEBUG) tapped on Save!")
         if didSaveLink {
             self.didSaveLink = false
+            Task {
+                await deletedSavedLink()
+            }
         } else {
             self.didSaveLink = true
             Task {
-                let wasSaved = await saveLinkTask().value
+                guard let image = await imageOfAd() else {
+                    await MainActor.run {
+                        self.didSaveLink = false
+                    }
+                    return
+                }
+                
+                let wasSaved = await saveLinkTask(image)
                 if !wasSaved {
-                    self.didSaveLink = false
+                    await MainActor.run {
+                        self.didSaveLink = false
+                    }
                 }
             }
         }
@@ -164,15 +209,21 @@ public struct AdCellView: View {
 }
 
 #Preview {
+    
+    let saveFn: (UIImage) async -> Bool =  { _ in
+        try? await Task.sleep(for: .milliseconds(12500))
+        return false
+    }
+    
+    let deletedSavedLink: () async -> Bool = {
+        try? await Task.sleep(for: .milliseconds(12500))
+        return false
+    }
+    
     AdCellView(model: .init(id: UUID().uuidString, adType: "AD", photoURL: .remote("https://images.finncdn.no/dynamic/480x360c/2019/8/vertical-2/04/l/nul/l_1451344711.jpg"),
                             price: 6500000,
                             location: "Stavanger",
-                            title: "Attraktiv, gjennomgående selveierleilighet i Straen Terrasse. Alt på ett plan. Heis. Garasje. Sørvendt altan.", isSaved: false)) {
-        Task {
-            try? await Task.sleep(for: .milliseconds(12500))
-            return false
-        }
-    }
+                            title: "Attraktiv, gjennomgående selveierleilighet i Straen Terrasse. Alt på ett plan. Heis. Garasje. Sørvendt altan.", isSaved: false), saveLinkTask: saveFn, deletedSavedLink: deletedSavedLink)
     .frame(height: 300)
     .padding(.horizontal, 12)
 }

@@ -17,6 +17,7 @@ public actor ImageFileManager {
         else { return .failure(NSError(domain: "No Valid File Manager Document URL", code: -1010)) }
         
         let imageDocumentURL = fileManagerDocURL.appendingPathComponent(name)
+        print("imageDocumentURL: \(imageDocumentURL.absoluteString)")
         do {
             try imageData.write(to: imageDocumentURL)
             return .success(imageDocumentURL)
@@ -27,15 +28,11 @@ public actor ImageFileManager {
     }
     
     public func retrieveImage(localImagePath: String) -> Result<UIImage, Error> {
-        let fileManager = FileManager()
+        let fileManager = FileManager.default
 
-        guard let fileManagerDocURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            return .failure(NSError(domain: "No Valid File Manager Document URL", code: -1010))
-        }
+        let imagePathURL = URL(filePath: localImagePath)
         
-        let imagePathURL = fileManagerDocURL.appending(path: localImagePath)
-            
-        guard fileManager.fileExists(atPath: imagePathURL.path())
+        guard fileManager.fileExists(atPath: localImagePath)
         else {
             return .failure(NSError(domain: "File doesn't exist", code: -1011))
         }

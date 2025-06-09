@@ -76,6 +76,12 @@ public class CoreDataManager {
         return object
     }
     
+    @discardableResult
+    public func deleteEntity<T: NSManagedObject>(_ entityInstance: T) -> Bool {
+        persistentContainer.viewContext.delete(entityInstance)
+        return save()
+    }
+    
     public var changeInContextPublisher: AnyPublisher<Void, Never> {
         NotificationCenter.default.publisher(for: .NSManagedObjectContextDidSave)
             .map { _ in () }

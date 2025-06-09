@@ -47,17 +47,25 @@ public class SavedAd: NSManagedObject {
     
     // MARK: - CoreData: Fetch
     
-    public static func fetch(in context: NSManagedObjectContext) -> [SavedAd] {
-        let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: "SavedAd")
-        var savedAds: [SavedAd] = []
-        do {
-            if let fetchSavedAds = try context.fetch(fetchRequest) as? [SavedAd] {
-                savedAds = fetchSavedAds
-            }
-        } catch {
-            print("(DEBUG) Failed While Fetching: ", error.localizedDescription)
-        }
-        return savedAds
+    public static func fetch(predicate: NSPredicate? = nil, sortDescriptors: [NSSortDescriptor] = []) -> [SavedAd] {
+        return CoreDataManager.shared.fetch(predicate: predicate, sortDescriptors: sortDescriptors) ?? []
     }
     
+    
+    // MARK: - CoreData: Delete
+    
+    public static func delete(adId: String) -> Bool {
+        let predicate = NSPredicate(format: "id == %@", adId)
+        guard let savedAd: SavedAd = CoreDataManager.shared.fetch(predicate: predicate)?.first else {
+            print("(DEBUG) no saved ad found with id: \(adId)")
+            return false
+        }
+        
+        if CoreDataManager.shared.deleteEntity(savedAd) {
+            print("(DEBUG) saved ad deleted successfully")
+            return true
+        }
+        
+        return false
+    }
 }

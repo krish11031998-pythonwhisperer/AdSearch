@@ -21,12 +21,8 @@ class ViewModel: ObservableObject {
     
     private var fetchAdTask: Task<Void, Never>?
     @Published private var fetchedAds: [Ad] = []
+    private var savedAdIds: [String] = []
     @Published var selectedTab: PageFilter = .all
-    private let store: Store
-    
-    init(store: Store) {
-        self.store = store
-    }
     
     struct Output {
         #warning("Use another transient model")
@@ -35,13 +31,26 @@ class ViewModel: ObservableObject {
     
     func transform() -> Output {
         
+        let savedAds = CoreDataManager.shared.changeInContextPublisher
+            .prepend(())
+            .flatMap { [unowned self] _ in
+                let savedAds: [SavedAd]? = CoreDataManager.shared.fetch()
+                self.savedAdIds = savedAds?.compactMap(\.id) ?? []
+                return Just(savedAds ?? []).eraseToAnyPublisher()
+            }
+            .eraseToAnyPublisher()
+        
+        let fetchedAds: AnyPublisher<[Ad], Never> = $fetchedAds
+            .drop(while: { $0.isEmpty })
+            .eraseToAnyPublisher()
+        
         let ads: AnyPublisher<AdResult, Never> = $selectedTab
-            .combineLatest(store.$savedAds)
-            .print("(DEBUG) selectedTab: ")
-            .flatMap { [unowned self] (filter, savedAds) -> AnyPublisher<AdResult, Never> in
+            .combineLatest(savedAds)
+            .flatMap { (filter, savedAds) -> AnyPublisher<AdResult, Never> in
                 switch filter {
                 case .all:
-                    return $fetchedAds
+                    return fetchedAds
+                        .removeDuplicates()
                         .map { ads in
                             var adAndSavedStatus: [(Ad, Bool)] = []
                             for ad in ads {
@@ -79,25 +88,27 @@ class ViewModel: ObservableObject {
         }
     }
     
-    func saveAd(_ ad: AdModel) async -> Bool {
+    func saveAd(_ ad: AdModel, image: UIImage) async -> Bool {
         let imageURL: URL?
-//        if case .remote(let photoURLString) = ad.photoURL {
-//            let image = await ImageManager.shared.fetchImage(urlString: "\(ImageManager.adURLBasePath)\(photoURLString)")
-//            switch await ImageFileManager.shared.addImage(image: image, name: photoURLString) {
-//            case .success(let url):
-//                imageURL = url
-//            case .failure:
-//                imageURL = nil
-//            }
-//        } else {
+        switch await ImageFileManager.shared.addImage(image: image, name: ad.id) {
+        case .success(let url):
+            imageURL = url
+        case .failure:
             imageURL = nil
-//        }
+        }
         
         return SavedAd.create(id: ad.id,
                               adType: ad.adType,
                               location: ad.location,
                               price: ad.price,
                               title: ad.title,
-                              imageString: imageURL?.lastPathComponent)
+                              imageString: imageURL?.path())
     }
+    
+    
+    func deleteAd(_ ad: AdModel) async -> Bool {
+        let wasDeleted = SavedAd.delete(adId: ad.id)
+        return wasDeleted
+    }
+    
 }

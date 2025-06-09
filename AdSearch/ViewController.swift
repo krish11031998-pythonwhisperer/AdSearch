@@ -82,11 +82,7 @@ class ViewController: UIViewController, UICollectionViewDelegate {
     }
     
     override init(nibName nibNameOrNil: String?, bundle nibBundleOrNil: Bundle?) {
-        #warning("Inject the store!")
-        guard let store = (UIApplication.shared.delegate as? AppDelegate)?.store else {
-            fatalError("Can't be can it ?")
-        }
-        self.viewModel = .init(store: store)
+        self.viewModel = .init()
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -114,12 +110,11 @@ class ViewController: UIViewController, UICollectionViewDelegate {
         setupDataSource()
         setupCollectionViewLayout()
         bind()
+        
+        viewModel.fetchAds()
+        viewUnavailableContentConfiguration = .loading
     }
     
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-        viewModel.fetchAds()
-    }
     
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
@@ -187,20 +182,14 @@ class ViewController: UIViewController, UICollectionViewDelegate {
         let cellRegistration = UICollectionView.CellRegistration<UICollectionViewCell, AdCellView.Model> { cell, indexPath, model in
             cell.configurationUpdateHandler = { cell, cellState in
                 cell.contentConfiguration = UIHostingConfiguration {
-                    AdCellView(model: model) { [unowned self] in
-                        Task {
-                           await self.viewModel.saveAd(model)
-                        }
+                    AdCellView(model: model) { [unowned self] image in
+                        await self.viewModel.saveAd(model, image: image)
+                    } deletedSavedLink: { [unowned self] in
+                        await self.viewModel.deleteAd(model)
                     }
                 }.margins(.all, .zero)
             }
         }
-
-//        let headerRegistration = UICollectionView.SupplementaryRegistration<FloatingFilterView<PageFilter>>(elementKind: UICollectionView.elementKindSectionHeader) { supplementaryView, elementKind, indexPath in
-//            supplementaryView.configure(filters: PageFilter.allCases) { [weak self] filter in
-//                self?.viewModel.selectedTab = filter
-//            }
-//        }
         
         datasource = Datasource(collectionView: collectionView) { collectionView, indexPath, item in
             switch item {
@@ -208,17 +197,6 @@ class ViewController: UIViewController, UICollectionViewDelegate {
                 return collectionView.dequeueConfiguredReusableCell(using: cellRegistration, for: indexPath, item: model)
             }
         }
-        
-//        datasource.supplementaryViewProvider = { collectionView, kind, indexPath in
-//            if let section = Section(rawValue: indexPath.section)  {
-//                switch section {
-//                case .ads:
-//                    return collectionView.dequeueConfiguredReusableSupplementary(using: headerRegistration, for: indexPath)
-//                }
-//            }
-//            
-//            return nil
-//        }
     }
     
     
@@ -231,14 +209,6 @@ class ViewController: UIViewController, UICollectionViewDelegate {
         let section = NSCollectionLayoutSection(group: group)
         section.interGroupSpacing = 16
         section.contentInsets = .init(top: 16, leading: 20, bottom: 16, trailing: 20)
-        
-            
-//        let header: NSCollectionLayoutBoundarySupplementaryItem = .init(layoutSize: .init(widthDimension: .fractionalWidth(1.0), heightDimension: .estimated(54)),
-//                                                                elementKind: UICollectionView.elementKindSectionHeader,
-//                                                                alignment: .top)
-//        header.pinToVisibleBounds = true
-//        
-//        section.boundarySupplementaryItems = [header]
         collectionView.setCollectionViewLayout(UICollectionViewCompositionalLayout(section: section), animated: false)
     }
     
@@ -262,12 +232,13 @@ class ViewController: UIViewController, UICollectionViewDelegate {
         }
         viewUnavailableContentConfiguration = .none
         
+        
         let adCellViewModels: [AdCellView.Model] = savedAds.map {
-            var photoImage: RemoteImage.Photo = .none
-            if let imagePath = $0.imageString {
-                photoImage = .local(imagePath)
+            var remoteImagePhoto: RemoteImage.Photo = .none
+            if let imageString = $0.imageString {
+                remoteImagePhoto = .local(imageString)
             }
-            return .init(id: $0.id, adType: $0.adType.rawValue, photoURL: photoImage, price: $0.price, location: $0.location, title: $0.title, isSaved: true)
+            return .init(id: $0.id, adType: $0.adType.rawValue, photoURL: remoteImagePhoto, price: $0.price, location: $0.location, title: $0.title, isSaved: true)
         }
         reloadData(ads: adCellViewModels)
     }

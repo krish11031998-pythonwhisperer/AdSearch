@@ -35,7 +35,7 @@ internal enum TestingFilters: CaseIterable, FloatingFilterType {
     }
 }
 
-public class FloatingFilterView<Filter: FloatingFilterType>: UICollectionReusableView {
+public class FloatingFilterView<Filter: FloatingFilterType>: UIView {
     
     private lazy var scrollView: StackScrollView = {
         let scrollView = StackScrollView()

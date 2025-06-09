@@ -16,7 +16,8 @@ class NetworkManager {
             throw URLError(.badURL)
         }
         
-        let urlRequest = URLRequest(url: url)
+        var urlRequest = URLRequest(url: url)
+        urlRequest.timeoutInterval = 30
         
         let (data, response) = try await URLSession.shared.data(for: urlRequest)
         

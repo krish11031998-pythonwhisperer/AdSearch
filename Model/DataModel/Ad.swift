@@ -38,7 +38,7 @@ public enum AdType: String, Decodable {
     }
 }
 
-public struct Ad: Decodable {
+public struct Ad: Hashable, Decodable {
     public let description: String?
     public let id: String
     public let urlPath: String?
@@ -87,12 +87,12 @@ public struct Ad: Decodable {
     
 }
 
-public struct AdPrice: Codable {
+public struct AdPrice: Hashable, Codable {
     public let value: Double?
     public let total: Double?
 }
 
-public struct AdImage: Codable {
+public struct AdImage: Hashable, Codable {
     public let url: String
     public let height: Int
     public let width: Int
@@ -101,18 +101,18 @@ public struct AdImage: Codable {
     public let scalable: Bool?
 }
 
-public struct AdFavorite: Codable {
+public struct AdFavorite: Hashable, Codable {
     public let itemId: String?
     #warning("make an enum")
     public let itemType: String?
 }
 
-public struct AdCategory: Codable {
+public struct AdCategory: Hashable, Codable {
     public let mainCategory: String?
     public let subCategory: String?
     public let prodCategory: String?
 }
 
-public struct AdShippingOptions: Codable {
+public struct AdShippingOptions: Hashable, Codable {
     public let label: String?
 }
