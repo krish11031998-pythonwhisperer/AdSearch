@@ -1,5 +1,5 @@
 //
-//  ImageManager.swift
+//  RemoteImageManager.swift
 //  AdSearch
 //
 //  Created by Krishna Venkatramani on 04/06/2025.
@@ -25,7 +25,7 @@ internal extension NSCache where KeyType == NSString, ObjectType == UIImage {
     
 }
 
-public actor ImageManager {
+public actor RemoteImageManager {
     
     private lazy var cache: NSCache<NSString, UIImage> = {
         let cache = NSCache<NSString, UIImage>()
@@ -36,7 +36,7 @@ public actor ImageManager {
     private var imageDownloadingTasks: [String: Task<UIImage, Never>] = [:]
     
     private init() {}
-    public static let shared: ImageManager = .init()
+    public static let shared: RemoteImageManager = .init()
     public static var adURLBasePath: String = "https://images.finncdn.no/dynamic/480x360c/"
     
     public func fetchImage(urlString: String) async -> UIImage {

@@ -9,6 +9,7 @@ import Combine
 import Model
 import UI
 import UIKit
+import ImageManager
 
 class ViewModel: ObservableObject {
     
@@ -25,7 +26,6 @@ class ViewModel: ObservableObject {
     @Published var selectedTab: PageFilter = .all
     
     struct Output {
-        #warning("Use another transient model")
         let ads: AnyPublisher<AdResult, Never>
     }
     

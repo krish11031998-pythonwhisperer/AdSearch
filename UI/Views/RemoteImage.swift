@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import ImageManager
 
 public struct RemoteImage: View {
     
@@ -122,7 +123,7 @@ public struct RemoteImage: View {
         let image: UIImage
         switch photoURL {
         case .remote(let urlString):
-            image = await ImageManager.shared.fetchImage(urlString: urlString)
+            image = await RemoteImageManager.shared.fetchImage(urlString: urlString)
         case .local(let string):
             switch await ImageFileManager.shared.retrieveImage(localImagePath: string) {
             case .success(let localImage):

@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import ImageManager
 
 public struct AdCellView: View {
     
@@ -109,7 +110,7 @@ public struct AdCellView: View {
         guard case .remote(let urlPath) = model.photoURL else {
             return model.photoURL
         }
-        return .remote("\(ImageManager.adURLBasePath)\(urlPath)")
+        return .remote("\(RemoteImageManager.adURLBasePath)\(urlPath)")
     }
     
     private var adTitle: String {
@@ -169,7 +170,7 @@ public struct AdCellView: View {
     private func imageOfAd() async -> UIImage? {
         switch model.photoURL {
         case .remote(let string):
-            return await ImageManager.shared.fetchImageWithoutRequest(urlString: "\(ImageManager.adURLBasePath)\(string)")
+            return await RemoteImageManager.shared.fetchImageWithoutRequest(urlString: "\(RemoteImageManager.adURLBasePath)\(string)")
         case .local(let string):
             switch await ImageFileManager.shared.retrieveImage(localImagePath: string) {
             case .success(let image):
