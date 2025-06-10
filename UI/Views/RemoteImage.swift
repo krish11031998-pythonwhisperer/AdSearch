@@ -57,6 +57,7 @@ public struct RemoteImage: View {
     enum ImageState: Hashable {
         case loading
         case image(UIImage)
+        case failedToLoad
     }
     
     @State private var loading: Bool = false
@@ -94,7 +95,7 @@ public struct RemoteImage: View {
             .opacity(loading ? 1 : 0)
             .transition(.opacity)
             .animation(.easeInOut, value: loading)
-            .task {
+            .task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(50))
                 if self.imageState == .loading {
                     self.loading = true
@@ -109,28 +110,35 @@ public struct RemoteImage: View {
                 progressIndicator
             case .image(let uIImage):
                 imageViewBuilder(image: uIImage)
+            case .failedToLoad:
+                Image(systemName: "photo.fill")
+                    .font(.largeTitle)
             }
         }
         .task(id: photoURL.id, priority: .userInitiated) {
             let image = await fetchImage()
             await MainActor.run {
-                self.imageState = .image(image)
+                switch image {
+                case .success(let image):
+                    self.imageState = .image(image)
+                case .failure(let error):
+                    print("(DEBUG) \(#file) - \(#line) error: ", error.localizedDescription)
+                    self.imageState = .failedToLoad
+                }
             }
+        }
+        .onDisappear {
+            self.imageState = .loading
         }
     }
     
-    private func fetchImage() async -> UIImage {
-        let image: UIImage
+    private func fetchImage() async -> Result<UIImage, Error> {
+        let image: Result<UIImage, Error>
         switch photoURL {
         case .remote(let urlString):
             image = await RemoteImageManager.shared.fetchImage(urlString: urlString)
         case .local(let string):
-            switch await ImageFileManager.shared.retrieveImage(localImagePath: string) {
-            case .success(let localImage):
-                image = localImage
-            case .failure:
-                image = .init(systemName: "photo")!
-            }
+            image = await ImageFileManager.shared.retrieveImage(name: string)
         case .none:
             preconditionFailure("No loading should be done for images with none as URL")
         }

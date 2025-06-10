@@ -12,6 +12,7 @@ enum AdViewUnavailableConfiguration {
     case loading
     case notLoading
     case noSavedAds
+    case noAds
 }
 
 extension UIConfigurationStateCustomKey {

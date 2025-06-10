@@ -14,7 +14,6 @@ public class SavedAd: NSManagedObject {
     
     @NSManaged public var id: String
     @NSManaged internal var adTypeRawValue: String
-    @NSManaged private(set) public var imageString: String?
     @NSManaged private(set) public var location: String?
     @NSManaged internal var priceRawValue: NSNumber?
     @NSManaged private(set) public var title: String?
@@ -31,11 +30,10 @@ public class SavedAd: NSManagedObject {
     // MARK: - CoreData: Create
     
     @discardableResult
-    public static func create(id: String, adType: String, location: String?, price: Double?, title: String?, imageString: String?) -> Bool {
-        let savedAdInstance: SavedAd = CoreDataManager.shared.insertEntity { savedAdInstance in
+    public static func create(id: String, adType: String, location: String?, price: Double?, title: String?) -> Bool {
+        let _: SavedAd = CoreDataManager.shared.insertEntity { savedAdInstance in
             savedAdInstance.id = id
             savedAdInstance.adTypeRawValue = adType
-            savedAdInstance.imageString = imageString
             savedAdInstance.location = location
             savedAdInstance.priceRawValue = price as NSNumber?
             savedAdInstance.title = title

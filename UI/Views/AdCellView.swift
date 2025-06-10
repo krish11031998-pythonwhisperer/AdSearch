@@ -154,7 +154,7 @@ public struct AdCellView: View {
                         .foregroundStyle(Color.red)
                 } else {
                     Image(systemName: "bookmark")
-                        .foregroundStyle(.fill)
+                        .foregroundStyle(Color.red)
                 }
             }
             .animation(.snappy, value: didSaveLink)
@@ -168,17 +168,20 @@ public struct AdCellView: View {
     // MARK: - Button Action
     
     private func imageOfAd() async -> UIImage? {
+        let imageResult: Result<UIImage, Error>
         switch model.photoURL {
         case .remote(let string):
-            return await RemoteImageManager.shared.fetchImageWithoutRequest(urlString: "\(RemoteImageManager.adURLBasePath)\(string)")
+            imageResult = await RemoteImageManager.shared.fetchImageWithoutRequest(urlString: "\(RemoteImageManager.adURLBasePath)\(string)")
         case .local(let string):
-            switch await ImageFileManager.shared.retrieveImage(localImagePath: string) {
-            case .success(let image):
-                return image
-            case .failure:
-                return nil
-            }
+            imageResult = await ImageFileManager.shared.retrieveImage(name: string)
         case .none:
+            return nil
+        }
+        
+        switch imageResult {
+        case .success(let image):
+            return image
+        case .failure:
             return nil
         }
     }
@@ -195,6 +198,13 @@ public struct AdCellView: View {
                 await updateButtonDisability(false)
             } else {
                 await updateDidSaveLink(true)
+                
+                guard case .remote = imageURLPath else {
+                    await updateDidSaveLink(false)
+                    await updateButtonDisability(false)
+                    return
+                }
+                
                 if let image = await imageOfAd() {
                     let wasSaved = await saveLinkTask(image)
                     if !wasSaved {

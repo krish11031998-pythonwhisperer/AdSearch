@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import Model
 import Combine
 
 class NetworkManager {
@@ -17,6 +16,7 @@ class NetworkManager {
         }
         
         var urlRequest = URLRequest(url: url)
+        urlRequest.cachePolicy = .reloadIgnoringLocalCacheData
         urlRequest.timeoutInterval = 30
         
         let (data, response) = try await URLSession.shared.data(for: urlRequest)

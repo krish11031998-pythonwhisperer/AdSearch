@@ -11,6 +11,11 @@ import Model
 import UI
 import Combine
 
+enum AdResult {
+    case fetchAds([(Ad, Bool)])
+    case savedAds([SavedAd])
+}
+
 enum PageFilter: FloatingFilterType {
     case all
     case saved
@@ -53,7 +58,7 @@ extension AdCellView.Model {
     }
 }
 
-class ViewController: UIViewController, UICollectionViewDelegate {
+class AdFetchViewController: UIViewController, UICollectionViewDelegate {
 
     enum Section: Int, Hashable {
         case ads = 0
@@ -71,7 +76,7 @@ class ViewController: UIViewController, UICollectionViewDelegate {
     private lazy var collectionView: UICollectionView = .init(frame: .init(), collectionViewLayout: .init())
     private lazy var filterView: FloatingFilterView<PageFilter> = .init()
     private var filterTopHeaderConstraint: NSLayoutConstraint!
-    private let viewModel: ViewModel
+    private let viewModel: any AdFetchViewModelType
     private var subscribers: Set<AnyCancellable> = .init()
     private var viewUnavailableContentConfiguration: AdViewUnavailableConfiguration? = nil {
         didSet {
@@ -81,8 +86,8 @@ class ViewController: UIViewController, UICollectionViewDelegate {
         }
     }
     
-    override init(nibName nibNameOrNil: String?, bundle nibBundleOrNil: Bundle?) {
-        self.viewModel = .init()
+    init(viewModel: any AdFetchViewModelType) {
+        self.viewModel = viewModel
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -159,11 +164,11 @@ class ViewController: UIViewController, UICollectionViewDelegate {
     // MARK: - Bind
     
     private func bind() {
-        let output = viewModel.transform()
+        let adResult: AnyPublisher<AdResult, Never> = viewModel.ads
         
-        output.ads
+        adResult
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] adResult in
+            .sink { [weak self] (adResult: AdResult) in
                 guard let self else { return }
                 switch adResult  {
                 case .fetchAds(let ads):
@@ -183,9 +188,9 @@ class ViewController: UIViewController, UICollectionViewDelegate {
             cell.configurationUpdateHandler = { cell, cellState in
                 cell.contentConfiguration = UIHostingConfiguration {
                     AdCellView(model: model) { [unowned self] image in
-                        await self.viewModel.saveAd(model, image: image)
+                        await self.viewModel.saveAd(id: model.id, adType: model.adType, location: model.location, price: model.price, title: model.title, image: image)
                     } deletedSavedLink: { [unowned self] in
-                        await self.viewModel.deleteAd(model)
+                        await self.viewModel.deleteAd(id: model.id)
                     }
                 }.margins(.all, .zero)
             }
@@ -217,7 +222,7 @@ class ViewController: UIViewController, UICollectionViewDelegate {
     
     private func reloadDataWithFetchedAds(ads: [(Ad, Bool)]) {
         guard !ads.isEmpty else {
-            reloadCollectionViewWithEmptyData(unavailableContentConfiguration: .noSavedAds)
+            reloadCollectionViewWithEmptyData(unavailableContentConfiguration: .noAds)
             return
         }
         viewUnavailableContentConfiguration = .none
@@ -234,10 +239,7 @@ class ViewController: UIViewController, UICollectionViewDelegate {
         
         
         let adCellViewModels: [AdCellView.Model] = savedAds.map {
-            var remoteImagePhoto: RemoteImage.Photo = .none
-            if let imageString = $0.imageString {
-                remoteImagePhoto = .local(imageString)
-            }
+            let remoteImagePhoto: RemoteImage.Photo = .local($0.id)
             return .init(id: $0.id, adType: $0.adType.rawValue, photoURL: remoteImagePhoto, price: $0.price, location: $0.location, title: $0.title, isSaved: true)
         }
         reloadData(ads: adCellViewModels)
@@ -292,6 +294,12 @@ class ViewController: UIViewController, UICollectionViewDelegate {
             var noSavedAdsConfiguration = UIContentUnavailableConfiguration.empty()
             noSavedAdsConfiguration.text = "No saved Ads yet"
             noSavedAdsConfiguration.image = .init(systemName: "exclamationmark.circle.fill")
+            noSavedAdsConfiguration.textProperties.font = .preferredFont(forTextStyle: .headline)
+            self.contentUnavailableConfiguration = noSavedAdsConfiguration
+        case .noAds:
+            var noSavedAdsConfiguration = UIContentUnavailableConfiguration.empty()
+            noSavedAdsConfiguration.text = "Failed to fetch ads"
+            noSavedAdsConfiguration.image = .init(systemName: "xmark.seal.fill")
             noSavedAdsConfiguration.textProperties.font = .preferredFont(forTextStyle: .headline)
             self.contentUnavailableConfiguration = noSavedAdsConfiguration
         case .notLoading, .none:

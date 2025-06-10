@@ -1,5 +1,5 @@
 //
-//  ViewModel.swift
+//  AdFetchViewModel.swift
 //  AdSearch
 //
 //  Created by Krishna Venkatramani on 04/06/2025.
@@ -11,26 +11,16 @@ import UI
 import UIKit
 import ImageManager
 
-class ViewModel: ObservableObject {
+class AdFetchViewModel: AdFetchViewModelType {
     
     typealias AdModel = AdCellView.Model
-    
-    enum AdResult {
-        case fetchAds([(Ad, Bool)])
-        case savedAds([SavedAd])
-    }
     
     private var fetchAdTask: Task<Void, Never>?
     @Published private var fetchedAds: [Ad] = []
     private var savedAdIds: [String] = []
     @Published var selectedTab: PageFilter = .all
     
-    struct Output {
-        let ads: AnyPublisher<AdResult, Never>
-    }
-    
-    func transform() -> Output {
-        
+    var ads: AnyPublisher<AdResult, Never> {
         let savedAds = CoreDataManager.shared.changeInContextPublisher
             .prepend(())
             .flatMap { [unowned self] _ in
@@ -44,7 +34,7 @@ class ViewModel: ObservableObject {
             .drop(while: { $0.isEmpty })
             .eraseToAnyPublisher()
         
-        let ads: AnyPublisher<AdResult, Never> = $selectedTab
+        return $selectedTab
             .combineLatest(savedAds)
             .flatMap { (filter, savedAds) -> AnyPublisher<AdResult, Never> in
                 switch filter {
@@ -66,8 +56,6 @@ class ViewModel: ObservableObject {
                 }
             }
             .eraseToAnyPublisher()
-        
-        return .init(ads: ads)
     }
     
     
@@ -88,27 +76,21 @@ class ViewModel: ObservableObject {
         }
     }
     
-    func saveAd(_ ad: AdModel, image: UIImage) async -> Bool {
-        let imageURL: URL?
-        switch await ImageFileManager.shared.addImage(image: image, name: ad.id) {
-        case .success(let url):
-            imageURL = url
-        case .failure:
-            imageURL = nil
-        }
+    func saveAd(id: String, adType: String, location: String?, price: Double?, title: String?, image: UIImage) async -> Bool {
+        await ImageFileManager.shared.addImage(image: image, name: id)
         
-        let wasSucessfullySaved = SavedAd.create(id: ad.id,
-                              adType: ad.adType,
-                              location: ad.location,
-                              price: ad.price,
-                              title: ad.title,
-                              imageString: imageURL?.path())
+        let wasSucessfullySaved = SavedAd.create(id: id,
+                                                 adType: adType,
+                                                 location: location,
+                                                 price: price,
+                                                 title: title)
         return wasSucessfullySaved
     }
     
     
-    func deleteAd(_ ad: AdModel) async -> Bool {
-        let wasDeleted = SavedAd.delete(adId: ad.id)
+    func deleteAd(id: String) async -> Bool {
+        let wasDeleted = SavedAd.delete(adId: id)
+        await ImageFileManager.shared.removeImage(name: id)
         return wasDeleted
     }
     

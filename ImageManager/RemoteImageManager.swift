@@ -33,50 +33,54 @@ public actor RemoteImageManager {
         return cache
     }()
     
-    private var imageDownloadingTasks: [String: Task<UIImage, Never>] = [:]
+    private var imageDownloadingTasks: [String: Task<UIImage, Error>] = [:]
     
     private init() {}
     public static let shared: RemoteImageManager = .init()
     public static var adURLBasePath: String = "https://images.finncdn.no/dynamic/480x360c/"
     
-    public func fetchImage(urlString: String) async -> UIImage {
+    public func fetchImage(urlString: String) async -> Result<UIImage, Error> {
         if let image = cache[urlString] {
-            return image
+            return .success(image)
         } else if let imageDownloadTask = imageDownloadingTasks[urlString] {
-            return await imageDownloadTask.value
+            do {
+                let image = try await imageDownloadTask.value
+                return .success(image)
+            } catch {
+                return .failure(error)
+            }
         } else {
-            let placeHolder: UIImage = .init(systemName: "photo.fill")!
             guard let url = URL(string: urlString) else {
-                return placeHolder
+                return .failure(URLError.badURL as! Error)
             }
             
-            let imageDownloadTask: Task<UIImage, Never> = .init {
-                do {
-                    let (data, _) = try await URLSession.shared.data(from: url)
-                    if let image = UIImage(data: data) {
-                        cache[urlString] = image
-                        return image
-                    } else {
-                        return placeHolder
-                    }
-                } catch {
-                    print("(ERROR) error while fetching image from url[\(urlString)]: \(error.localizedDescription)")
-                    return placeHolder
+            let imageDownloadTask: Task<UIImage, Error> = .init {
+                let (data, _) = try await URLSession.shared.data(from: url)
+                if let image = UIImage(data: data) {
+                    cache[urlString] = image
+                    return image
+                } else {
+                    throw NSError(domain: "Could not decode image", code: 1015)
                 }
             }
             
             imageDownloadingTasks[urlString] = imageDownloadTask
-            return await imageDownloadTask.value
+            do {
+                let image = try await imageDownloadTask.value
+                return .success(image)
+            } catch {
+                return .failure(error)
+            }
         }
     }
     
-    public func fetchImageWithoutRequest(urlString: String) async -> UIImage? {
+    public func fetchImageWithoutRequest(urlString: String) async -> Result<UIImage, Error> {
         if let image = cache[urlString] {
-            return image
+            return .success(image)
         } else if let imageDownloadTask = imageDownloadingTasks[urlString] {
-            return await imageDownloadTask.value
+            return await imageDownloadTask.result
         } else {
-            return nil
+            return .failure(NSError(domain: "No image found", code: 1016))
         }
     }
     

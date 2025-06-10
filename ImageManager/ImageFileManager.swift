@@ -11,13 +11,19 @@ public actor ImageFileManager {
     
     public static let shared = ImageFileManager()
     
+    private let fileManager = FileManager.default
+    private var cacheURL: URL? {
+        fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first
+    }
+    
+    @discardableResult
     public func addImage(image: UIImage, name: String) -> Result<URL, Error> {
         guard let imageData = image.jpegData(compressionQuality: 1),
-              let fileManagerDocURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+              let fileManagerDocURL = cacheURL
         else { return .failure(NSError(domain: "No Valid File Manager Document URL", code: -1010)) }
         
-        let imageDocumentURL = fileManagerDocURL.appendingPathComponent(name)
-        print("imageDocumentURL: \(imageDocumentURL.absoluteString)")
+        let imageDocumentURL = fileManagerDocURL.appendingPathComponent(name + ".cache")
+        
         do {
             try imageData.write(to: imageDocumentURL)
             return .success(imageDocumentURL)
@@ -27,24 +33,36 @@ public actor ImageFileManager {
         }
     }
     
-    public func retrieveImage(localImagePath: String) -> Result<UIImage, Error> {
-        let fileManager = FileManager.default
-
-        let imagePathURL = URL(filePath: localImagePath)
-        
-        guard fileManager.fileExists(atPath: localImagePath)
-        else {
-            return .failure(NSError(domain: "File doesn't exist", code: -1011))
+    public func retrieveImage(name: String) -> Result<UIImage, Error> {
+        guard let fileManagerDocURL = cacheURL else {
+            return .failure(NSError(domain: "No Valid File Manager Document URL", code: -1010))
         }
         
+        let imageDocumentURL = fileManagerDocURL.appendingPathComponent(name + ".cache")
+        
         do {
-            let data = try Data(contentsOf: imagePathURL)
+            let data = try Data(contentsOf: imageDocumentURL)
             guard let image = UIImage(data: data) else {
                 return .failure(NSError(domain: "No Valid Image", code: -1012))
             }
             return .success(image)
         } catch {
-            print("(ERROR) while reading image for URL: \(imagePathURL) - \(error.localizedDescription)")
+            return .failure(error)
+        }
+    }
+    
+    @discardableResult
+    public func removeImage(name: String) -> Result<Bool, Error> {
+        guard let fileManagerDocURL = cacheURL else {
+            return .failure(NSError(domain: "No Valid File Manager Document URL", code: -1010))
+        }
+        
+        let imageDocumentURL = fileManagerDocURL.appendingPathComponent(name + ".cache")
+        
+        do {
+            try fileManager.removeItem(at: imageDocumentURL)
+            return .success(true)
+        } catch {
             return .failure(error)
         }
     }
