@@ -19,11 +19,15 @@ class NetworkManager {
         urlRequest.cachePolicy = .reloadIgnoringLocalCacheData
         urlRequest.timeoutInterval = 10
         
+        try Task.checkCancellation()
+        
         let (data, response) = try await URLSession.shared.data(for: urlRequest)
         
         guard let httpResponse = response as? HTTPURLResponse ,200..<300 ~= httpResponse.statusCode else  {
             throw URLError(.badServerResponse)
         }
+        
+        try Task.checkCancellation()
         
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase

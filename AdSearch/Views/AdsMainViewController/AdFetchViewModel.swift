@@ -31,7 +31,6 @@ class AdFetchViewModel: AdFetchViewModelType {
             .eraseToAnyPublisher()
         
         let fetchedAds: AnyPublisher<[Ad], Never> = $fetchedAds
-//            .drop(while: { $0.isEmpty })
             .eraseToAnyPublisher()
         
         return $selectedTab

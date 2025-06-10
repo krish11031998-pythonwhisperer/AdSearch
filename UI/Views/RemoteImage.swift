@@ -60,12 +60,14 @@ public struct RemoteImage: View {
         case failedToLoad
     }
     
-    @State private var loading: Bool = false
-    @State private var imageState: ImageState = .loading
+    @State private var loading: Bool
+    @State private var imageState: ImageState
     private let photoURL: Photo
     private let contentMode: ContentMode
     
     public init(photoURL: Photo, contentMode: ContentMode = .fill) {
+        self._loading = .init(initialValue: false)
+        self._imageState = .init(wrappedValue: .loading)
         self.photoURL = photoURL
         self.contentMode = contentMode
     }
@@ -116,19 +118,28 @@ public struct RemoteImage: View {
             }
         }
         .task(id: photoURL.id, priority: .userInitiated) {
-            let image = await fetchImage()
-            await MainActor.run {
-                switch image {
-                case .success(let image):
-                    self.imageState = .image(image)
-                case .failure(let error):
-                    print("(DEBUG) \(#file) - \(#line) error: ", error.localizedDescription)
-                    self.imageState = .failedToLoad
+            do {
+                try Task.checkCancellation()
+                
+                let image = await fetchImage()
+                
+                try Task.checkCancellation()
+                
+                await MainActor.run {
+                    switch image {
+                    case .success(let image):
+                        self.imageState = .image(image)
+                    case .failure(let error):
+                        print("(DEBUG) \(#file) - \(#line) error: ", error.localizedDescription)
+                        self.imageState = .failedToLoad
+                    }
                 }
+                
+            } catch is CancellationError {
+                print("(ERROR) cancelled before fetching image")
+            } catch {
+                print("(ERROR) error while fetching image: \(error.localizedDescription)")
             }
-        }
-        .onDisappear {
-            self.imageState = .loading
         }
     }
     

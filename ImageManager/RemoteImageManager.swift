@@ -55,12 +55,23 @@ public actor RemoteImageManager {
             }
             
             let imageDownloadTask: Task<UIImage, Error> = .init {
-                let (data, _) = try await URLSession.shared.data(from: url)
-                if let image = UIImage(data: data) {
-                    cache[urlString] = image
-                    return image
-                } else {
-                    throw NSError(domain: "Could not decode image", code: 1015)
+                do {
+                    try Task.checkCancellation()
+                    
+                    let (data, _) = try await URLSession.shared.data(from: url)
+                    
+                    try Task.checkCancellation()
+                    
+                    if let image = UIImage(data: data) {
+                        cache[urlString] = image
+                        return image
+                    } else {
+                        throw NSError(domain: "Could not decode image", code: 1015)
+                    }
+                } catch is CancellationError {
+                    throw CancellationError()
+                } catch {
+                    throw error
                 }
             }
             
