@@ -167,6 +167,7 @@ class AdFetchViewController: UIViewController, UICollectionViewDelegate {
         let adResult: AnyPublisher<AdResult, Never> = viewModel.ads
         
         adResult
+            .dropFirst(1)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] (adResult: AdResult) in
                 guard let self else { return }

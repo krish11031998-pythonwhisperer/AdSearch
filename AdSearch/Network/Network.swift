@@ -17,7 +17,7 @@ class NetworkManager {
         
         var urlRequest = URLRequest(url: url)
         urlRequest.cachePolicy = .reloadIgnoringLocalCacheData
-        urlRequest.timeoutInterval = 30
+        urlRequest.timeoutInterval = 10
         
         let (data, response) = try await URLSession.shared.data(for: urlRequest)
         

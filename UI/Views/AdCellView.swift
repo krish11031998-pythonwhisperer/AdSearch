@@ -48,10 +48,10 @@ public struct AdCellView: View {
     @State private var size: CGSize = .zero
     @State private var disableSaveButton: Bool = false
     private let model: Model
-    private let saveLinkTask: (UIImage) async -> Bool
+    private let saveLinkTask: (UIImage?) async -> Bool
     private let deletedSavedLink: () async  -> Bool
     
-    public init(model: Model, saveLinkTask: @escaping (UIImage) async -> Bool, deletedSavedLink: @escaping () async -> Bool) {
+    public init(model: Model, saveLinkTask: @escaping (UIImage?) async -> Bool, deletedSavedLink: @escaping () async -> Bool) {
         self.model = model
         self._didSaveLink = .init(initialValue: model.isSaved)
         self.saveLinkTask = saveLinkTask
@@ -205,14 +205,12 @@ public struct AdCellView: View {
                     return
                 }
                 
-                if let image = await imageOfAd() {
-                    let wasSaved = await saveLinkTask(image)
-                    if !wasSaved {
-                        await updateDidSaveLink(false)
-                    }
-                } else {
+                let image = await imageOfAd()
+                let wasSaved = await saveLinkTask(image)
+                if !wasSaved {
                     await updateDidSaveLink(false)
                 }
+                
                 await updateButtonDisability(false)
             }
         }
@@ -231,7 +229,7 @@ public struct AdCellView: View {
 
 #Preview {
     
-    let saveFn: (UIImage) async -> Bool =  { _ in
+    let saveFn: (UIImage?) async -> Bool =  { _ in
         try? await Task.sleep(for: .milliseconds(12500))
         return false
     }

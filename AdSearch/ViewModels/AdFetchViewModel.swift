@@ -31,7 +31,7 @@ class AdFetchViewModel: AdFetchViewModelType {
             .eraseToAnyPublisher()
         
         let fetchedAds: AnyPublisher<[Ad], Never> = $fetchedAds
-            .drop(while: { $0.isEmpty })
+//            .drop(while: { $0.isEmpty })
             .eraseToAnyPublisher()
         
         return $selectedTab
@@ -40,7 +40,6 @@ class AdFetchViewModel: AdFetchViewModelType {
                 switch filter {
                 case .all:
                     return fetchedAds
-                        .removeDuplicates()
                         .map { ads in
                             var adAndSavedStatus: [(Ad, Bool)] = []
                             for ad in ads {
@@ -67,17 +66,24 @@ class AdFetchViewModel: AdFetchViewModelType {
         }
         
         fetchAdTask = Task(priority: .userInitiated) {
-            guard let adResponse: AdResponse = try? await NetworkManager.fetchData(urlString: "https://gist.githubusercontent.com/baldermork/6a1bcc8f429dcdb8f9196e917e5138bd/raw/discover.json") else {
-                return
+            let adResponse: AdResponse
+            do {
+                adResponse = try await NetworkManager.fetchData(urlString: "https://gist.githubusercontent.com/baldermork/6a1bcc8f429dcdb8f9196e917e5138bd/raw/discover.json")
+            } catch {
+                print("(ERROR) error: ", error.localizedDescription)
+                adResponse = .empty
             }
+
             await MainActor.run {
                 self.fetchedAds = adResponse.items
             }
         }
     }
     
-    func saveAd(id: String, adType: String, location: String?, price: Double?, title: String?, image: UIImage) async -> Bool {
-        await ImageFileManager.shared.addImage(image: image, name: id)
+    func saveAd(id: String, adType: String, location: String?, price: Double?, title: String?, image: UIImage?) async -> Bool {
+        if let image {
+            await ImageFileManager.shared.addImage(image: image, name: id)
+        }
         
         let wasSucessfullySaved = SavedAd.create(id: id,
                                                  adType: adType,
